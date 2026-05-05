@@ -1,0 +1,11 @@
+{
+    "apps": [
+        {
+            "id": "A1",
+            "name": "io.appium.android.apis",
+            "package": "io.appium.android.apis",
+            "launch-activity": "io.appium.android.apis.ApiDemos"
+        }
+    ],
+    "scenarios": []
+}

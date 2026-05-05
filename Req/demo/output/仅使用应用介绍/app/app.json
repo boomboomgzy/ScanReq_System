@@ -1,0 +1,11 @@
+{
+    "apps": [
+        {
+            "id": "A1",
+            "name": "app",
+            "package": "",
+            "launch-activity": ""
+        }
+    ],
+    "scenarios": []
+}

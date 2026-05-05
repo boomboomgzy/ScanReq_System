@@ -7,37 +7,55 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        :root {
+            --ink: #0c1c24;
+            --ink-soft: #20313b;
+            --sun: #f7b045;
+            --teal: #1a6c74;
+            --teal-dark: #0f3f4a;
+            --mint: #9dd9c5;
+            --sand: #f2ebe2;
+            --cloud: #f7f4ef;
+            --glass: rgba(255, 255, 255, 0.76);
+            --shadow: 0 25px 60px rgba(14, 28, 36, 0.18);
+        }
+        html {
+            overflow-y: scroll;
+        }
         body {
-            background: linear-gradient(135deg, #1a1c2c 0%, #4a192c 100%); /* Fallback */
-            background: linear-gradient(to bottom right, #0f172a, #1e1b4b, #312e81);
-            color: #e2e8f0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            color: var(--ink);
+            font-family: "Gill Sans", "Gill Sans MT", "Calibri", sans-serif;
+            background: radial-gradient(circle at top left, #fef5df, #f8efe4 40%, #e7f2ef 90%);
             min-height: 100vh;
         }
         .glass-panel {
-            background: rgba(30, 41, 59, 0.7);
+            background: var(--glass);
             backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(18, 76, 84, 0.12);
             border-radius: 1rem;
+            box-shadow: var(--shadow);
         }
         .form-input {
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(12, 28, 36, 0.18);
+            color: var(--ink);
             transition: all 0.2s;
         }
         .form-input:focus {
-            border-color: #818cf8;
+            border-color: var(--teal);
             outline: none;
-            box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.2);
+            box-shadow: 0 0 0 2px rgba(26, 108, 116, 0.15);
         }
         .btn-primary {
-            background: linear-gradient(to right, #6366f1, #818cf8);
+            background: linear-gradient(120deg, var(--teal), var(--teal-dark));
+            color: #ffffff;
             transition: all 0.2s;
+            box-shadow: 0 10px 20px rgba(18, 76, 84, 0.25);
         }
         .btn-primary:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            box-shadow: 0 14px 28px rgba(18, 76, 84, 0.35);
         }
         .btn-primary:disabled {
             opacity: 0.5;
@@ -60,113 +78,264 @@
             background: rgba(255, 255, 255, 0.3);
         }
         /* Tab Styles */
+        .tool-tabbar {
+            display: flex;
+            gap: 0.7rem;
+            align-items: center;
+            border-bottom: 1px solid rgba(12, 28, 36, 0.14);
+            padding-bottom: 0.65rem;
+        }
         .tab-btn {
-            @apply px-4 py-2 rounded-lg font-medium transition-colors;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 96px;
+            padding: 0.5rem 1.05rem;
+            border-radius: 0.6rem;
+            border: 1.5px solid transparent;
+            font-weight: 700;
+            line-height: 1.15;
+            transition: all 0.2s;
         }
         .tab-btn.active {
-            @apply bg-indigo-600 text-white shadow-lg;
+            background: linear-gradient(120deg, var(--teal), var(--teal-dark));
+            color: #ffffff;
+            box-shadow: 0 6px 14px rgba(18, 76, 84, 0.2);
         }
         .tab-btn.inactive {
-            @apply text-indigo-300 hover:text-white hover:bg-white/10;
+            color: #1f3743;
+            background: rgba(255, 255, 255, 0.86);
+            border-color: rgba(18, 76, 84, 0.22);
+        }
+        .tab-btn.inactive:hover {
+            color: #0f3f4a;
+            background: rgba(255, 255, 255, 0.95);
+        }
+        .site-nav {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            background: linear-gradient(to bottom, rgba(247, 244, 239, 0.95), rgba(247, 244, 239, 0.75));
+            padding: 1rem 0.8rem;
+            border-bottom: 1px solid rgba(12, 28, 36, 0.08);
+            backdrop-filter: blur(10px);
+        }
+        .site-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .site-brand img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+        .site-brand h1 {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .site-brand p {
+            margin: 0;
+            font-size: 0.75rem;
+            color: var(--ink-soft);
+        }
+        .site-nav-center {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+            font-weight: 600;
+            color: var(--ink-soft);
+        }
+        .site-nav-center a {
+            color: inherit;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .site-nav-center a:hover {
+            color: var(--teal-dark);
+        }
+        .site-nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .nav-pill {
+            padding: 0.45rem 1rem;
+            border-radius: 999px;
+            border: 2px solid var(--teal);
+            color: var(--teal-dark);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            background: transparent;
+        }
+        .nav-pill:hover {
+            color: #ffffff;
+            background: var(--teal);
+        }
+        .nav-pill.primary {
+            background: var(--teal);
+            color: #ffffff;
+        }
+        .nav-user-name {
+            font-weight: 600;
+            color: var(--teal-dark);
+            font-size: 0.9rem;
+        }
+        .settings-btn {
+            color: var(--teal-dark);
+        }
+        .settings-btn:hover {
+            background: rgba(26, 108, 116, 0.1);
+        }
+        .required-star {
+            color: #dc2626;
+            font-weight: 700;
+            margin-left: 4px;
+        }
+        .required-note {
+            margin-bottom: 16px;
+            color: var(--ink-soft);
+            font-size: 0.9rem;
+        }
+        .form-input::placeholder {
+            color: #52667a;
+            opacity: 0.92;
+        }
+        #app .text-white { color: var(--ink) !important; }
+        #app .text-indigo-100 { color: #264857 !important; }
+        #app .text-indigo-200 { color: #1f3e4b !important; }
+        #app .text-indigo-300 { color: #2b4d5c !important; }
+        #app .text-gray-300 { color: #415568 !important; }
+        #app .text-gray-400 { color: #516376 !important; }
+        #app .text-gray-500 { color: #3d4f62 !important; }
+        #app .text-yellow-400 { color: #b45309 !important; }
+        #app .text-green-400 { color: #15803d !important; }
+        #app .text-red-200 { color: #991b1b !important; }
+        #app .text-blue-400 { color: #0f596a !important; }
+        #app .hover\:text-blue-300:hover { color: #0b4552 !important; }
+        #app .bg-indigo-900\/30 { background: rgba(255,255,255,0.68) !important; }
+        #app .border-indigo-500\/20 { border-color: rgba(18,76,84,0.18) !important; }
+        #app .bg-red-900\/30 { background: rgba(254,226,226,0.8) !important; }
+        #app .border-red-500\/30 { border-color: rgba(220,38,38,0.35) !important; }
+        #app .border-white\/10 { border-color: rgba(12,28,36,0.12) !important; }
+        #app .border-white\/5 { border-color: rgba(12,28,36,0.08) !important; }
+        #app .hover\:bg-white\/5:hover { background: rgba(12,28,36,0.03) !important; }
+        #app .btn-primary,
+        #app .btn-primary.text-white,
+        #app .tab-btn.active,
+        #app .nav-pill.primary {
+            color: #ffffff !important;
+        }
+        @media (max-width: 900px) {
+            .site-nav-center {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
     <div id="app" class="container mx-auto px-4 py-8 max-w-6xl">
-        <!-- Header -->
-        <header class="flex justify-between items-center mb-8">
-            <div class="flex items-center space-x-4">
-                <div class="bg-indigo-600 p-2 rounded-lg">
-                    <span class="text-2xl font-bold text-white">Req</span>
-                </div>
+        <header class="site-nav mb-8">
+            <div class="site-brand">
+                <img src="/mooctestlogo.png" alt="Mooctest logo" onerror="this.style.display='none'">
                 <div>
-                    <h1 class="text-2xl font-bold">{{ t('title') }}</h1>
-                    <p class="text-indigo-200 text-sm">{{ t('subtitle') }}</p>
+                    <h1>Mooctest AI Studio · Req</h1>
+                    <p>{{ t('subtitle') }}</p>
                 </div>
             </div>
-            
-            <div class="flex items-center space-x-4">
-                <!-- Settings Button -->
-                <button @click="showSettings = !showSettings" class="text-indigo-300 hover:text-white transition-colors p-2 rounded-full hover:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                </button>
 
-                <!-- Language Toggle -->
-                <div class="bg-indigo-900/50 p-1 rounded-lg flex border border-indigo-500/30">
-                    <button 
-                        @click="lang = 'zh'" 
-                        :class="{'bg-indigo-600 text-white': lang === 'zh', 'text-indigo-300 hover:text-white': lang !== 'zh'}"
-                        class="px-3 py-1 rounded-md text-sm font-medium transition-all"
-                    >
-                        中文
-                    </button>
-                    <button 
-                        @click="lang = 'en'" 
-                        :class="{'bg-indigo-600 text-white': lang === 'en', 'text-indigo-300 hover:text-white': lang !== 'en'}"
-                        class="px-3 py-1 rounded-md text-sm font-medium transition-all"
-                    >
-                        English
-                    </button>
-                </div>
+            <nav class="site-nav-center">
+                <a @click.prevent="currentTab='generate'">{{ t('navTools') }}</a>
+                <a @click.prevent="fetchHistory(); currentTab='history'">{{ t('navSpecs') }}</a>
+                <a @click.prevent="lang = lang === 'zh' ? 'en' : 'zh'">{{ t('langSwitch') }}</a>
+            </nav>
+
+            <div class="site-nav-actions">
+                <template v-if="currentUser">
+                    <span class="nav-user-name">{{ currentUser.username }}</span>
+                    <button class="nav-pill" @click="handleLogout">{{ t('logout') }}</button>
+                </template>
+                <template v-else>
+                    <a class="nav-pill" :href="portalUrl(lang === 'zh' ? '/zh/login' : '/login')">{{ t('login') }}</a>
+                    <a class="nav-pill primary" :href="portalUrl(lang === 'zh' ? '/zh/register' : '/register')">{{ t('register') }}</a>
+                </template>
             </div>
         </header>
 
         <!-- Navigation Tabs -->
-        <div class="flex space-x-4 mb-6 border-b border-white/10 pb-2">
-            <button 
-                @click="currentTab = 'generate'" 
+        <div class="tool-tabbar mb-6">
+            <button
+                @click="currentTab = 'generate'"
                 class="tab-btn"
                 :class="currentTab === 'generate' ? 'active' : 'inactive'"
             >
                 {{ t('tabGenerate') }}
             </button>
-            <button 
-                @click="fetchHistory(); currentTab = 'history'" 
+            <button
+                @click="fetchHistory(); currentTab = 'history'"
                 class="tab-btn"
                 :class="currentTab === 'history' ? 'active' : 'inactive'"
             >
                 {{ t('tabHistory') }}
             </button>
+            <button
+                @click="currentTab = 'settings'"
+                class="tab-btn"
+                :class="currentTab === 'settings' ? 'active' : 'inactive'"
+            >
+                {{ t('settings') }}
+            </button>
         </div>
 
-        <!-- Settings Modal (Inline for simplicity) -->
-        <div v-if="showSettings" class="glass-panel p-6 mb-8 border-indigo-500 border-2 shadow-lg animate-fade-in relative">
-            <button @click="showSettings = false" class="absolute top-4 right-4 text-gray-400 hover:text-white">✕</button>
-            <h3 class="text-xl font-bold text-white mb-4">{{ t('settings') }}</h3>
-            <div>
-                <label class="block text-sm font-medium text-indigo-200 mb-2">{{ t('globalApiKey') }}</label>
-                <div class="flex space-x-2">
-                    <input 
-                        type="password" 
-                        v-model="globalApiKey" 
-                        class="form-input flex-1 px-4 py-3 rounded-lg"
-                        placeholder="sk-..."
-                    >
-                    <button 
-                        @click="saveGlobalApiKey"
-                        class="btn-primary px-6 py-2 rounded-lg text-white font-bold"
-                    >
-                        {{ t('save') }}
-                    </button>
+        <!-- SETTINGS TAB -->
+        <div v-if="currentTab === 'settings'">
+            <div class="glass-panel p-8 shadow-2xl">
+                <div>
+                    <label class="block text-sm font-medium text-indigo-200 mb-2">{{ t('globalApiKey') }}<span class="required-star">*</span></label>
+                    <div class="flex space-x-2">
+                        <input
+                            type="password"
+                            v-model="globalApiKey"
+                            class="form-input flex-1 px-4 py-3 rounded-lg"
+                            placeholder="sk-..."
+                        >
+                        <button
+                            @click="saveGlobalApiKey"
+                            class="btn-primary px-6 py-2 rounded-lg text-white font-bold"
+                        >
+                            {{ t('save') }}
+                        </button>
+                    </div>
+                    <p v-if="hasApiKey" class="text-green-400 text-sm mt-2">✓ {{ t('apiKeySet') }}</p>
+                    <p v-else class="text-yellow-400 text-sm mt-2">⚠ {{ t('apiKeyNotSet') }}</p>
                 </div>
-                <p v-if="hasApiKey" class="text-green-400 text-sm mt-2">✓ {{ t('apiKeySet') }}</p>
-                <p v-else class="text-yellow-400 text-sm mt-2">⚠ {{ t('apiKeyNotSet') }}</p>
             </div>
         </div>
 
         <!-- GENERATE TAB -->
         <div v-if="currentTab === 'generate'">
             <div class="glass-panel p-8 shadow-2xl">
+                <p class="required-note">{{ t('requiredNote') }}</p>
                 
                 <!-- Combo Row (API Key removed from here, used globally) -->
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-indigo-200 mb-2">{{ t('combo') }}</label>
-                    <select v-model="form.combo" class="form-input w-full px-4 py-3 rounded-lg appearance-none bg-no-repeat bg-right">
-                        <option v-for="c in combos" :key="c" :value="c">{{ c }}</option>
+                    <label class="block text-sm font-medium text-indigo-200 mb-2">{{ t('combo') }}<span class="required-star">*</span></label>
+                    <select v-model="form.combo" required class="form-input w-full px-4 py-3 rounded-lg">
+                        <option value="" disabled>{{ t('comboPlaceholder') }}</option>
+                        <option v-for="c in combos" :key="c" :value="c">{{ comboLabel(c) }}</option>
                     </select>
+                    <p v-if="combos.length === 0" class="text-sm text-red-200 mt-2">{{ t('comboLoadingFail') }}</p>
                 </div>
 
                 <!-- File Upload & App Name -->
@@ -184,13 +353,14 @@
 
                     <!-- File Upload -->
                     <div>
-                        <label class="block text-sm font-medium text-indigo-200 mb-2">{{ t('apkFile') }}</label>
+                        <label class="block text-sm font-medium text-indigo-200 mb-2">{{ t('apkFile') }}<span class="required-star">*</span></label>
                         <div class="relative">
                             <input 
                                 type="file" 
                                 ref="fileInput"
                                 @change="handleFileUpload"
                                 class="hidden" 
+                                required
                                 accept=".apk"
                             >
                             <div class="flex items-center form-input rounded-lg p-1 pr-4">
@@ -372,7 +542,7 @@
                         <tr v-for="job in historyList" :key="job.job_id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
                             <td class="py-3 px-4 text-gray-300">{{ formatTime(job.created_at) }}</td>
                             <td class="py-3 px-4 text-white font-medium">{{ job.app_name || job.original_filename }}</td>
-                            <td class="py-3 px-4 text-gray-300">{{ job.combo }}</td>
+                            <td class="py-3 px-4 text-gray-300">{{ comboLabel(job.combo) }}</td>
                             <td class="py-3 px-4">
                                 <span class="px-2 py-1 rounded text-xs font-bold uppercase"
                                     :class="{
@@ -385,8 +555,8 @@
                             </td>
                             <td class="py-3 px-4">
                                 <div v-if="job.status === 'completed'" class="flex space-x-3">
-                                    <a :href="getDownloadLink(job.job_id, 'report')" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs">Report</a>
-                                    <a :href="getDownloadLink(job.job_id, 'zip')" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs">Zip</a>
+                                    <a :href="getDownloadLink(job.job_id, 'report')" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs">{{ t('report') }}</a>
+                                    <a :href="getDownloadLink(job.job_id, 'zip')" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs">{{ t('zip') }}</a>
                                 </div>
                                 <span v-else class="text-gray-500 text-xs">-</span>
                             </td>
@@ -403,10 +573,37 @@
 
     <script>
         const { createApp, ref, onMounted, watch } = Vue;
+        const SESSION_KEY = 'mooctest_session';
 
         createApp({
             setup() {
-                const lang = ref('zh');
+                const bootstrapSessionFromQuery = () => {
+                    try {
+                        const params = new URLSearchParams(window.location.search);
+                        const sid = (params.get('session_id') || '').trim();
+                        if (!sid) return;
+                        console.log(sid)
+                        sessionStorage.setItem(SESSION_KEY, sid);
+                        params.delete('session_id');
+                        const search = params.toString();
+                        const nextUrl = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
+                        window.history.replaceState({}, '', nextUrl);
+                    } catch (e) {
+                        console.warn('Failed to bootstrap session from query', e);
+                    }
+                };
+                bootstrapSessionFromQuery();
+
+                const detectLang = () => {
+                    const params = new URLSearchParams(window.location.search);
+                    const qLang = (params.get('lang') || '').trim().toLowerCase();
+                    if (qLang === 'en' || qLang === 'zh') return qLang;
+                    const saved = localStorage.getItem('mooctest_lang');
+                    if (saved === 'en' || saved === 'zh') return saved;
+                    const nav = (navigator.language || '').toLowerCase();
+                    return nav.startsWith('zh') ? 'zh' : 'en';
+                };
+                const lang = ref(detectLang());
                 const combos = ref([]);
                 const loading = ref(false);
                 const status = ref('idle'); 
@@ -419,6 +616,9 @@
                 const globalApiKey = ref('');
                 const hasApiKey = ref(false);
 
+                // User
+                const currentUser = ref(null);
+
                 // History
                 const historyList = ref([]);
                 
@@ -430,18 +630,46 @@
 
                 const form = ref({
                     apiKey: '', // Deprecated in UI but kept for compatibility
-                    combo: '应用介绍+Activity分析', // default
+                    combo: '',
                     repoLink: '',
                     appIntro: '',
                     jobId: '',
                     filename: '',
                     appName: ''
                 });
+                const fallbackCombos = [
+                    '仅使用应用介绍',
+                    '仅使用Activity分析',
+                    '应用介绍+Activity分析',
+                    '仅使用代码解析文档',
+                    '代码解析文档+Activity分析',
+                    '应用介绍+Activity分析+代码解析文档'
+                ];
+                const comboEnMap = {
+                    '仅使用应用介绍': 'App Introduction Only',
+                    '仅使用Activity分析': 'Activity Analysis Only',
+                    '应用介绍+Activity分析': 'App Introduction + Activity Analysis',
+                    '仅使用代码解析文档': 'Code Analysis Doc Only',
+                    '代码解析文档+Activity分析': 'Code Analysis Doc + Activity Analysis',
+                    '应用介绍+Activity分析+代码解析文档': 'App Introduction + Activity Analysis + Code Analysis Doc'
+                };
+                const comboLabel = (value) => {
+                    if (lang.value === 'en' && comboEnMap[value]) return comboEnMap[value];
+                    return value;
+                };
 
                 const translations = {
                     zh: {
                         title: '需求生成系统 Demo',
                         subtitle: '上传 APK → 选择组合模式 → 生成并下载文件',
+                        backHome: '返回首页',
+                        navTools: '工具',
+                        navSpecs: '能力',
+                        langSwitch: 'English',
+                        login: '登录',
+                        register: '注册',
+                        logout: '退出',
+                        requiredNote: '* 为必填项',
                         settings: '系统设置',
                         globalApiKey: '全局 API Key (DashScope)',
                         apiKeySet: 'API Key 已配置',
@@ -449,6 +677,9 @@
                         apiKeyRequired: '请在设置中配置 API Key',
                         save: '保存',
                         combo: '组合模式',
+                        comboPlaceholder: '请选择组合模式',
+                        comboLoadingFail: '未从服务端获取到组合模式，已使用本地默认选项。',
+                        comboRequired: '请先选择组合模式',
                         apkFile: 'APK 文件',
                         appName: '应用名称',
                         appNamePlaceholder: '请输入应用名称',
@@ -484,11 +715,22 @@
                         noHistory: '暂无历史记录',
                         taskSubmitted: '任务已提交至后台',
                         checkHistory: '请前往历史记录查看进度',
-                        ok: '好的'
+                        ok: '好的',
+                        apiKeySaved: 'API Key 已保存',
+                        saveConfigFailed: '保存配置失败',
+                        uploadFailed: '上传失败'
                     },
                     en: {
                         title: 'Requirement Generation Demo',
                         subtitle: 'Upload APK → Select Strategy → Generate & Download',
+                        backHome: 'Back Home',
+                        navTools: 'Tools',
+                        navSpecs: 'Specs',
+                        langSwitch: '中文',
+                        login: 'Login',
+                        register: 'Register',
+                        logout: 'Logout',
+                        requiredNote: '* required fields',
                         settings: 'Settings',
                         globalApiKey: 'Global API Key (DashScope)',
                         apiKeySet: 'API Key Configured',
@@ -496,6 +738,9 @@
                         apiKeyRequired: 'Please configure API Key in settings',
                         save: 'Save',
                         combo: 'Generation Strategy',
+                        comboPlaceholder: 'Please select a strategy',
+                        comboLoadingFail: 'Cannot load strategies from server, fallback options are used.',
+                        comboRequired: 'Please select a strategy first',
                         apkFile: 'APK File',
                         appName: 'App Name',
                         appNamePlaceholder: 'Enter App Name',
@@ -531,30 +776,165 @@
                         noHistory: 'No history found',
                         taskSubmitted: 'Task submitted to background',
                         checkHistory: 'Please check history for progress',
-                        ok: 'OK'
+                        ok: 'OK',
+                        apiKeySaved: 'API Key Saved',
+                        saveConfigFailed: 'Failed to save config',
+                        uploadFailed: 'Upload failed'
                     }
                 };
 
                 const t = (key) => translations[lang.value][key] || key;
+                watch(lang, (val) => { localStorage.setItem('mooctest_lang', val); });
+                const getSessionId = () => sessionStorage.getItem(SESSION_KEY) || '';
+                let authRequired = true;
+                const resolvePortalOrigin = () => {
+                    const key = 'MOOCTEST_PORTAL_ORIGIN';
+                    const saved = (localStorage.getItem(key) || sessionStorage.getItem(key) || '').trim();
+                    if (saved) {
+                        return saved.replace(/\/+$/, '');
+                    }
+                    if (window.location.port === '5173' || window.location.port === '') {
+                        return window.location.origin;
+                    }
+                    return `${window.location.protocol}//${window.location.hostname}:5173`;
+                };
+                const portalOrigin = resolvePortalOrigin();
+                const portalUrl = (path) => {
+                    const cleanPath = String(path || '/').startsWith('/') ? String(path || '/') : `/${String(path || '')}`;
+                    return `${portalOrigin}${cleanPath}`;
+                };
+                const syncSelectedCombo = () => {
+                    if (!Array.isArray(combos.value) || combos.value.length === 0) {
+                        form.value.combo = '';
+                        return;
+                    }
+                    if (!combos.value.includes(form.value.combo)) {
+                        form.value.combo = combos.value[0];
+                    }
+                };
+                const toComboList = (raw) => {
+                    const src = Array.isArray(raw) ? raw : [];
+                    return src.map((item) => {
+                        if (typeof item === 'string') return item.trim();
+                        if (item && typeof item === 'object') {
+                            return String(item.label || item.name || item.value || '').trim();
+                        }
+                        return '';
+                    }).filter(Boolean);
+                };
+
+                const redirectToLogin = () => {
+                    const loginPath = lang.value === 'zh' ? '/zh/login' : '/login';
+                    const returnPath = window.location.href;
+                    window.location.href = `${portalUrl(loginPath)}?return=${encodeURIComponent(returnPath)}`;
+                };
+
+                const authFetch = async (url, options = {}) => {
+                    const sessionId = getSessionId();
+                    if (authRequired && !sessionId) {
+                        redirectToLogin();
+                        throw new Error('Not authenticated');
+                    }
+                    const headers = new Headers(options.headers || {});
+                    if (sessionId) {
+                        headers.set('X-Session-Id', sessionId);
+                    }
+                    const resp = await fetch(url, { ...options, headers });
+                    if (resp.status === 401 && authRequired) {
+                        redirectToLogin();
+                        throw new Error('Not authenticated');
+                    }
+                    return resp;
+                };
+
+                const ensureAuthenticated = async () => {
+                    const sessionId = getSessionId();
+                    const headers = new Headers();
+                    if (sessionId) {
+                        headers.set('X-Session-Id', sessionId);
+                    }
+                    try {
+                        const resp = await fetch('/api/auth/session', { headers });
+                        if (!resp.ok) {
+                            authRequired = true;
+                            if (resp.status === 401) {
+                                redirectToLogin();
+                                return false;
+                            }
+                            if (!sessionId) {
+                                redirectToLogin();
+                            }
+                            return false;
+                        }
+                        try {
+                            const body = await resp.json();
+                            authRequired = body.auth_enabled !== false;
+                        } catch (err) {
+                            authRequired = true;
+                        }
+                        if (authRequired && !sessionId) {
+                            redirectToLogin();
+                            return false;
+                        }
+                        return true;
+                    } catch (e) {
+                        authRequired = true;
+                        if (!sessionId) {
+                            redirectToLogin();
+                        }
+                        return false;
+                    }
+                };
+
+                const fetchUser = async () => {
+                    const sessionId = getSessionId();
+                    if (!sessionId) return;
+                    try {
+                        const resp = await fetch('/api/auth/user', {
+                            headers: { 'X-Session-Id': sessionId },
+                        });
+                        if (resp.ok) {
+                            currentUser.value = await resp.json();
+                        }
+                    } catch (e) {
+                        console.warn('Failed to fetch user info', e);
+                    }
+                };
+
+                const handleLogout = () => {
+                    sessionStorage.removeItem(SESSION_KEY);
+                    currentUser.value = null;
+                    redirectToLogin();
+                };
 
                 onMounted(async () => {
+                    const ok = await ensureAuthenticated();
+                    if (!ok) return;
+                    fetchUser();
                     loadCombos();
                     checkConfig();
                 });
 
                 const loadCombos = async () => {
                     try {
-                        const res = await fetch('/api/combos');
+                        const res = await authFetch('/api/combos');
+                        if (!res.ok) {
+                            throw new Error('Failed to load combos');
+                        }
                         const data = await res.json();
-                        combos.value = data.combos;
+                        const serverCombos = toComboList(data.combos ?? data.items ?? data);
+                        combos.value = serverCombos.length > 0 ? serverCombos : [...fallbackCombos];
+                        syncSelectedCombo();
                     } catch (e) {
                         console.error('Failed to load combos', e);
+                        combos.value = [...fallbackCombos];
+                        syncSelectedCombo();
                     }
                 };
 
                 const checkConfig = async () => {
                     try {
-                        const res = await fetch('/api/config');
+                        const res = await authFetch('/api/config');
                         const data = await res.json();
                         hasApiKey.value = data.has_api_key;
                         if (data.api_key) {
@@ -568,17 +948,17 @@
                 const saveGlobalApiKey = async () => {
                     if (!globalApiKey.value) return;
                     try {
-                        await fetch('/api/config', {
+                        await authFetch('/api/config', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ api_key: globalApiKey.value })
                         });
                         hasApiKey.value = true;
                         showSettings.value = false;
-                        globalApiKey.value = ''; // clear input
-                        alert('API Key Saved');
+                        globalApiKey.value = '';
+                        alert(t('apiKeySaved'));
                     } catch (e) {
-                        alert('Failed to save config');
+                        alert(t('saveConfigFailed'));
                     }
                 };
 
@@ -595,7 +975,7 @@
 
                     try {
                         loading.value = true;
-                        const res = await fetch('/api/upload', {
+                        const res = await authFetch('/api/upload', {
                             method: 'POST',
                             body: formData
                         });
@@ -603,19 +983,27 @@
                         form.value.jobId = data.job_id;
                         status.value = 'idle';
                     } catch (e) {
-                        alert('Upload failed');
+                        alert(t('uploadFailed'));
                     } finally {
                         loading.value = false;
                     }
                 };
 
                 const startGeneration = async () => {
+                    const authOk = await ensureAuthenticated();
+                    if (!authOk) {
+                        return;
+                    }
                     if (!form.value.jobId) {
-                        alert('Please upload a file first');
+                        alert(t('uploadApkFirst'));
+                        return;
+                    }
+                    if (!form.value.combo) {
+                        alert(t('comboRequired'));
                         return;
                     }
                     if (!hasApiKey.value) {
-                        alert('Please set Global API Key in settings');
+                        alert(t('apiKeyRequired'));
                         showSettings.value = true;
                         return;
                     }
@@ -626,7 +1014,7 @@
                     result.value = null;
 
                     try {
-                        const res = await fetch('/api/generate', {
+                        const res = await authFetch('/api/generate', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -663,7 +1051,7 @@
 
                 const fetchHistory = async () => {
                     try {
-                        const res = await fetch('/api/history');
+                        const res = await authFetch('/api/history');
                         const data = await res.json();
                         historyList.value = data.history;
 
@@ -701,7 +1089,11 @@
                 };
 
                 const getDownloadLink = (jobId, type) => {
-                    return `/api/download/${jobId}/${type}`;
+                    const sessionId = getSessionId();
+                    if (!sessionId) {
+                        return `/api/download/${jobId}/${type}`;
+                    }
+                    return `/api/download/${jobId}/${type}?session_id=${encodeURIComponent(sessionId)}`;
                 };
 
                 const formatTime = (ts) => {
@@ -723,7 +1115,7 @@
                     }
                     
                     try {
-                        const response = await fetch('/api/upload_source', {
+                        const response = await authFetch('/api/upload_source', {
                             method: 'POST',
                             body: formData
                         });
@@ -738,7 +1130,7 @@
                         sourceUploaded.value = true;
                     } catch (e) {
                         console.error(e);
-                        alert('Failed to upload source code');
+                        alert(t('uploadFailed'));
                         sourceFileName.value = '';
                     } finally {
                         sourceUploading.value = false;
@@ -772,7 +1164,11 @@
                     sourceUploading,
                     sourceUploaded,
                     sourceFileName,
-                    handleSourceUpload
+                    handleSourceUpload,
+                    portalUrl,
+                    currentUser,
+                    handleLogout,
+                    comboLabel
                 };
             }
         }).mount('#app');

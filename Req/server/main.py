@@ -1,15 +1,21 @@
-import sys
+import copy
+import importlib
+import json
 import os
-import time
 import shutil
+import sys
+import threading
+import time
 import uuid
-import asyncio
 import zipfile
 from pathlib import Path
-from typing import Optional, List
-from fastapi import FastAPI, File, UploadFile, Form, BackgroundTasks, HTTPException
+from typing import Optional
+from urllib import error as urllib_error
+from urllib import request as urllib_request
+
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 
 # Add project root to path
@@ -17,12 +23,11 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from Req.demo.run_multi_model_unified6_demo import process_existing_app_combo, AVAILABLE_COMBOS
+from Req.demo.run_multi_model_unified6_demo import AVAILABLE_COMBOS, process_existing_app_combo
 from Req.tools.parse_flow import preprocess_apk
-from Req.config.RunConfig import OUTPUT_ROOT
 from Req.tools.report_generator import generate_report
-from Req.tools.zip_utils import create_zip
 from Req.tools.source_analysis_bridge import run_source_analysis
+from Req.tools.zip_utils import create_zip
 
 app = FastAPI()
 
@@ -30,45 +35,129 @@ app = FastAPI()
 STORAGE_DIR = ROOT_DIR / "storage"
 UPLOAD_DIR = STORAGE_DIR / "uploads"
 DOWNLOAD_DIR = STORAGE_DIR / "downloads"
-
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-import json
-
 # Global Configuration
 GLOBAL_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
+SERVER_CONFIG_FILE = Path(__file__).resolve().parent / "server_config.json"
+
+
+def parse_bool(value, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on", "y"}
+
+
+def load_server_config() -> dict:
+    default_config = {
+        "auth_enabled": True,
+        "auth_verify_url": "http://127.0.0.1:8980/api/auth/user",
+    }
+
+    if not SERVER_CONFIG_FILE.exists():
+        try:
+            with open(SERVER_CONFIG_FILE, "w", encoding="utf-8") as handle:
+                json.dump(default_config, handle, indent=2, ensure_ascii=False)
+        except Exception as exc:
+            print(f"Failed to create server config file: {exc}")
+        return default_config
+
+    try:
+        with open(SERVER_CONFIG_FILE, "r", encoding="utf-8") as handle:
+            raw = json.load(handle)
+        if not isinstance(raw, dict):
+            raise ValueError("server_config.json must be a JSON object")
+        config = default_config.copy()
+        config.update(raw)
+        config["auth_enabled"] = parse_bool(config.get("auth_enabled"), True)
+        config["auth_verify_url"] = str(config.get("auth_verify_url", "")).strip() or default_config["auth_verify_url"]
+        return config
+    except Exception as exc:
+        print(f"Failed to load server config file: {exc}")
+        return default_config
+
+
+SERVER_CONFIG = load_server_config()
+MOOCTEST_AUTH_ENABLED = SERVER_CONFIG["auth_enabled"]
+MOOCTEST_AUTH_VERIFY_URL = SERVER_CONFIG["auth_verify_url"]
 
 # Job Store
 JOBS_FILE = ROOT_DIR / "jobs.json"
 jobs = {}
+jobs_lock = threading.RLock()
 
-def load_jobs():
-    global jobs
-    if JOBS_FILE.exists():
-        try:
-            with open(JOBS_FILE, "r", encoding="utf-8") as f:
-                jobs = json.load(f)
-            print(f"Loaded {len(jobs)} jobs from {JOBS_FILE}")
-        except Exception as e:
-            print(f"Failed to load jobs: {e}")
-            jobs = {}
 
-def save_jobs():
+def get_session_id(req: Request) -> str:
+    header_id = (req.headers.get("X-Session-Id") or "").strip()
+    if header_id:
+        return header_id
+    return (req.query_params.get("session_id") or "").strip()
+
+
+def verify_session(session_id: str) -> bool:
+    if not session_id:
+        return False
+    auth_req = urllib_request.Request(
+        MOOCTEST_AUTH_VERIFY_URL,
+        headers={"X-Session-Id": session_id},
+        method="GET",
+    )
     try:
-        with open(JOBS_FILE, "w", encoding="utf-8") as f:
-            json.dump(jobs, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        print(f"Failed to save jobs: {e}")
+        with urllib_request.urlopen(auth_req, timeout=3) as resp:
+            return 200 <= getattr(resp, "status", 0) < 300
+    except urllib_error.HTTPError:
+        return False
+    except Exception:
+        return False
 
-# Load jobs on startup
+
+def require_auth(req: Request) -> str:
+    if not MOOCTEST_AUTH_ENABLED:
+        return "auth_disabled"
+    session_id = get_session_id(req)
+    if not verify_session(session_id):
+        raise HTTPException(status_code=401, detail="Authentication required. Please login from Mooctest home.")
+    return session_id
+
+
+def load_jobs() -> None:
+    global jobs
+    with jobs_lock:
+        if JOBS_FILE.exists():
+            try:
+                with open(JOBS_FILE, "r", encoding="utf-8") as handle:
+                    jobs = json.load(handle)
+                print(f"Loaded {len(jobs)} jobs from {JOBS_FILE}")
+            except Exception as exc:
+                print(f"Failed to load jobs: {exc}")
+                jobs = {}
+
+
+def save_jobs() -> None:
+    with jobs_lock:
+        tmp_file = JOBS_FILE.with_suffix(".tmp")
+        try:
+            with open(tmp_file, "w", encoding="utf-8") as handle:
+                json.dump(jobs, handle, indent=2, ensure_ascii=False)
+            os.replace(tmp_file, JOBS_FILE)
+        except Exception as exc:
+            print(f"Failed to save jobs: {exc}")
+            if tmp_file.exists():
+                tmp_file.unlink(missing_ok=True)
+
+
 load_jobs()
+
 
 class JobStatus:
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+
 
 class GenerateRequest(BaseModel):
     job_id: str
@@ -79,269 +168,265 @@ class GenerateRequest(BaseModel):
     app_intro: Optional[str] = None
     app_name: Optional[str] = None
 
+
 class ConfigRequest(BaseModel):
     api_key: str
 
+
+@app.get("/api/auth/session")
+def auth_session(_: str = Depends(require_auth)):
+    return {"authenticated": True, "auth_enabled": MOOCTEST_AUTH_ENABLED}
+
+
+@app.get("/api/auth/user")
+def auth_user(req: Request):
+    session_id = get_session_id(req)
+    if not session_id:
+        raise HTTPException(status_code=401, detail="No session")
+    auth_req = urllib_request.Request(
+        MOOCTEST_AUTH_VERIFY_URL,
+        headers={"X-Session-Id": session_id},
+        method="GET",
+    )
+    try:
+        with urllib_request.urlopen(auth_req, timeout=3) as resp:
+            import json as _json
+            return _json.loads(resp.read().decode("utf-8"))
+    except urllib_error.HTTPError:
+        raise HTTPException(status_code=401, detail="Authentication failed")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
 @app.get("/api/config")
-def get_config():
-    # Return actual API key if exists (for echo)
-    return {
-        "has_api_key": bool(GLOBAL_API_KEY),
-        "api_key": GLOBAL_API_KEY
-    }
+def get_config(_: str = Depends(require_auth)):
+    return {"has_api_key": bool(GLOBAL_API_KEY), "api_key": GLOBAL_API_KEY}
+
 
 @app.post("/api/config")
-def set_config(config: ConfigRequest):
+def set_config(config: ConfigRequest, _: str = Depends(require_auth)):
     global GLOBAL_API_KEY
     GLOBAL_API_KEY = config.api_key
-    # Also set in env for immediate use if needed by other modules
     os.environ["DASHSCOPE_API_KEY"] = GLOBAL_API_KEY
-    
-    # Reload RunConfig to update API_KEY in other modules
-    import importlib
+
+    # Refresh runtime config for downstream modules.
     import Req.config.RunConfig
+
     importlib.reload(Req.config.RunConfig)
-    
     return {"message": "Configuration updated"}
 
+
 @app.get("/api/combos")
-def get_combos():
+def get_combos(_: str = Depends(require_auth)):
     return {"combos": AVAILABLE_COMBOS}
 
+
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...), app_name: Optional[str] = Form(None), job_id: Optional[str] = Form(None)):
+async def upload_file(
+    file: UploadFile = File(...),
+    app_name: Optional[str] = Form(None),
+    job_id: Optional[str] = Form(None),
+    _: str = Depends(require_auth),
+):
     if not job_id:
         job_id = str(uuid.uuid4())
-    
-    # Create job if not exists
-    if job_id not in jobs:
-        jobs[job_id] = {
-            "job_id": job_id,
-            "status": JobStatus.PENDING,
-            "created_at": str(time.time()),
-            "app_name": app_name or "Unknown",
-            "combo": "",
-            "lang": ""
-        }
+
+    with jobs_lock:
+        if job_id not in jobs:
+            jobs[job_id] = {
+                "job_id": job_id,
+                "status": JobStatus.PENDING,
+                "created_at": str(time.time()),
+                "app_name": app_name or "Unknown",
+                "combo": "",
+                "lang": "",
+            }
 
     job_dir = UPLOAD_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
-    
     file_path = job_dir / "app.apk"
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    
-    # Update job info
-    jobs[job_id]["file_path"] = str(file_path)
-    jobs[job_id]["original_filename"] = file.filename
-    if app_name:
-        jobs[job_id]["app_name"] = app_name
-        
-    save_jobs()
-    
-    return {
-        "job_id": job_id,
-        "message": "File uploaded successfully",
-        "app_name": jobs[job_id]["app_name"],
-        "original_filename": jobs[job_id]["original_filename"]
-    }
+
+    with jobs_lock:
+        jobs[job_id]["file_path"] = str(file_path)
+        jobs[job_id]["original_filename"] = file.filename
+        if app_name:
+            jobs[job_id]["app_name"] = app_name
+        payload = {
+            "job_id": job_id,
+            "message": "File uploaded successfully",
+            "app_name": jobs[job_id]["app_name"],
+            "original_filename": jobs[job_id]["original_filename"],
+        }
+        save_jobs()
+    return payload
+
 
 @app.post("/api/upload_source")
-async def upload_source(job_id: Optional[str] = Form(None), file: UploadFile = File(...)):
+async def upload_source(
+    job_id: Optional[str] = Form(None),
+    file: UploadFile = File(...),
+    _: str = Depends(require_auth),
+):
     if not job_id:
         job_id = str(uuid.uuid4())
 
-    # Create job if not exists
-    if job_id not in jobs:
-        jobs[job_id] = {
-            "job_id": job_id,
-            "status": JobStatus.PENDING,
-            "created_at": str(time.time()),
-            "app_name": "Unknown", # Will be updated if APK is uploaded or user inputs it
-            "combo": "",
-            "lang": ""
-        }
-    
+    with jobs_lock:
+        if job_id not in jobs:
+            jobs[job_id] = {
+                "job_id": job_id,
+                "status": JobStatus.PENDING,
+                "created_at": str(time.time()),
+                "app_name": "Unknown",
+                "combo": "",
+                "lang": "",
+            }
+
     job_dir = UPLOAD_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
-    
     source_zip_path = job_dir / "source.zip"
     with open(source_zip_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    
-    jobs[job_id]["source_zip_path"] = str(source_zip_path)
+
+    with jobs_lock:
+        jobs[job_id]["source_zip_path"] = str(source_zip_path)
     save_jobs()
-    
     return {"message": "Source code uploaded successfully", "job_id": job_id}
+
 
 def process_job_task(job_id: str, combo: str, lang: str, repo_link: str, app_intro: str, api_key: str):
     try:
-        jobs[job_id]["status"] = JobStatus.RUNNING
-        jobs[job_id]["combo"] = combo
-        jobs[job_id]["lang"] = lang
+        with jobs_lock:
+            if job_id not in jobs:
+                raise Exception("Job not found")
+            jobs[job_id]["status"] = JobStatus.RUNNING
+            jobs[job_id]["combo"] = combo
+            jobs[job_id]["lang"] = lang
+            job_info = copy.deepcopy(jobs[job_id])
         save_jobs()
-        
-        job_info = jobs[job_id]
-        file_path = Path(job_info["file_path"])
-        
-        # Set API Key priority: Request > Global
+
+        file_path_str = job_info.get("file_path")
+        if not file_path_str:
+            raise Exception("APK not uploaded")
+        file_path = Path(file_path_str)
+
         effective_api_key = api_key if api_key else GLOBAL_API_KEY
-        
         if effective_api_key:
             os.environ["DASHSCOPE_API_KEY"] = effective_api_key
-            # Ensure RunConfig picks it up for this process/thread
-            import importlib
             import Req.config.RunConfig
+
             importlib.reload(Req.config.RunConfig)
-        
-        # Preprocess APK
+
         work_dir = file_path.parent / "work"
         work_dir.mkdir(exist_ok=True)
-        
-        pp = preprocess_apk(str(file_path), str(work_dir))
-        
-        if not pp.get("ok"):
-            raise Exception(f"APK Preprocessing failed: {pp.get('message')}")
-            
-        app_dir = Path(pp.get("app_dir"))
-        
-        # Handle Source Code Analysis if Zip is provided
+        preprocessed = preprocess_apk(str(file_path), str(work_dir))
+        if not preprocessed.get("ok"):
+            raise Exception(f"APK Preprocessing failed: {preprocessed.get('message')}")
+        app_dir = Path(preprocessed.get("app_dir"))
+
         code_doc_override = None
         source_zip_path = job_info.get("source_zip_path")
-        
         if source_zip_path and os.path.exists(source_zip_path):
             try:
-                print(f"Processing source zip: {source_zip_path}")
                 source_extract_dir = work_dir / "source_code"
                 source_extract_dir.mkdir(exist_ok=True)
-                
-                with zipfile.ZipFile(source_zip_path, 'r') as zip_ref:
+                with zipfile.ZipFile(source_zip_path, "r") as zip_ref:
                     zip_ref.extractall(source_extract_dir)
-                    
-                # The zip might contain a top-level folder. 
-                # run_source_analysis expects the root of the source code.
-                # If there's only one directory, go inside.
                 items = list(source_extract_dir.iterdir())
-                if len(items) == 1 and items[0].is_dir():
-                    analysis_target = items[0]
-                else:
-                    analysis_target = source_extract_dir
-                    
-                print(f"Running analysis on: {analysis_target}")
-                
-                # Get app name from job info if available
+                analysis_target = items[0] if len(items) == 1 and items[0].is_dir() else source_extract_dir
                 current_app_name = job_info.get("app_name")
                 if current_app_name == "Unknown":
                     current_app_name = None
-                    
-                code_doc_override = run_source_analysis(str(analysis_target), str(work_dir), app_name=current_app_name)
-                
-                if code_doc_override:
-                    print("Source code analysis completed successfully.")
-                else:
-                    print("Source code analysis returned empty result.")
-            except Exception as e:
-                print(f"Error processing source zip: {e}")
-                # Don't fail the whole job, just continue without code analysis or fallback
-        
-        # Run Generation
+                code_doc_override = run_source_analysis(
+                    str(analysis_target), str(work_dir), app_name=current_app_name
+                )
+            except Exception as exc:
+                print(f"Error processing source zip: {exc}")
+
         result = process_existing_app_combo(
             app_dir=app_dir,
             combo_label=combo,
             lang=lang,
-            code_doc_override=code_doc_override
+            code_doc_override=code_doc_override,
         )
-        
         if not result.get("ok"):
-             raise Exception(f"Generation failed: {result.get('message')}")
-             
-        # Generate Report and Zip
+            raise Exception(f"Generation failed: {result.get('message')}")
+
         srs_path = result.get("srs")
         tests_path = result.get("tests")
         test_json_path = result.get("test_json")
         app_name = result.get("app")
-        
-        # jobs[job_id]["app_name"] = app_name # Keep original filename as app_name
-        
-        # Determine output directory (same as generated files)
         combo_dir = Path(srs_path).parent
-        
-        # 1. Generate Word Report
-        report_filename = f"{app_name}_功能测试报告.docx"
-        report_path = combo_dir / report_filename
+
+        report_path = combo_dir / f"{app_name}_功能测试报告.docx"
         generate_report(srs_path, tests_path, str(report_path), lang=lang)
-        
-        # 2. Generate Zip
-        zip_filename = f"{app_name}_data.zip"
-        zip_path = combo_dir / zip_filename
-        
+
+        zip_path = combo_dir / f"{app_name}_data.zip"
         files_to_zip = [srs_path, tests_path]
         if test_json_path and os.path.exists(test_json_path):
             files_to_zip.append(test_json_path)
-            
         create_zip(files_to_zip, str(zip_path))
-        
-        # Update result with new files
+
         result["report"] = str(report_path)
         result["zip"] = str(zip_path)
 
-        # Result paths are absolute.
-        jobs[job_id]["result"] = result
-        jobs[job_id]["status"] = JobStatus.COMPLETED
+        with jobs_lock:
+            if job_id in jobs:
+                jobs[job_id]["result"] = result
+                jobs[job_id]["status"] = JobStatus.COMPLETED
         save_jobs()
-        
-        # Cleanup uploaded and intermediate files
+
         try:
             if file_path.parent.exists():
                 shutil.rmtree(file_path.parent)
-                print(f"Cleaned up job directory: {file_path.parent}")
-        except Exception as e:
-            print(f"Failed to cleanup job directory {file_path.parent}: {e}")
-        
-    except Exception as e:
-        jobs[job_id]["status"] = JobStatus.FAILED
-        jobs[job_id]["error"] = str(e)
+        except Exception as exc:
+            print(f"Failed to cleanup job directory {file_path.parent}: {exc}")
+    except Exception as exc:
+        with jobs_lock:
+            if job_id in jobs:
+                jobs[job_id]["status"] = JobStatus.FAILED
+                jobs[job_id]["error"] = str(exc)
         save_jobs()
-        print(f"Job {job_id} failed: {e}")
+        print(f"Job {job_id} failed: {exc}")
+
 
 @app.post("/api/generate")
-async def start_generation(req: GenerateRequest, background_tasks: BackgroundTasks):
-    job_id = req.job_id
-    if job_id not in jobs:
-        raise HTTPException(status_code=404, detail="Job not found")
-    
-    # Update app_name if provided (in case user entered it after upload)
-    if req.app_name:
-        jobs[job_id]["app_name"] = req.app_name
-        save_jobs()
-        
+async def start_generation(req: GenerateRequest, background_tasks: BackgroundTasks, _: str = Depends(require_auth)):
+    with jobs_lock:
+        if req.job_id not in jobs:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if req.app_name:
+            jobs[req.job_id]["app_name"] = req.app_name
+    save_jobs()
+
     background_tasks.add_task(
-        process_job_task, 
-        job_id, 
-        req.combo, 
-        req.lang, 
-        req.repo_link, 
-        req.app_intro, 
-        req.api_key
+        process_job_task,
+        req.job_id,
+        req.combo,
+        req.lang,
+        req.repo_link,
+        req.app_intro,
+        req.api_key,
     )
-    
-    return {"job_id": job_id, "status": "queued"}
+    return {"job_id": req.job_id, "status": "queued"}
+
 
 @app.get("/api/status/{job_id}")
-async def get_status(job_id: str):
-    if job_id not in jobs:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return jobs[job_id]
+async def get_status(job_id: str, _: str = Depends(require_auth)):
+    with jobs_lock:
+        if job_id not in jobs:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return copy.deepcopy(jobs[job_id])
+
 
 @app.get("/api/history")
-async def get_history():
-    # Return list of jobs sorted by creation time (newest first)
-    # We use 'created_at' which is a float string timestamp
-    
-    job_list = []
-    for jid, job in jobs.items():
-        # Create a summary object
-        summary = {
+async def get_history(_: str = Depends(require_auth)):
+    with jobs_lock:
+        items = list(jobs.items())
+    history = []
+    for jid, job in items:
+        row = {
             "job_id": jid,
             "status": job.get("status"),
             "created_at": job.get("created_at"),
@@ -349,31 +434,26 @@ async def get_history():
             "app_name": job.get("app_name", "Unknown"),
             "combo": job.get("combo"),
             "lang": job.get("lang"),
-            "error": job.get("error")
+            "error": job.get("error"),
         }
-        # Include result paths if completed
         if job.get("status") == JobStatus.COMPLETED:
-            summary["result"] = job.get("result")
-            
-        job_list.append(summary)
-        
-    # Sort by created_at desc
-    job_list.sort(key=lambda x: float(x.get("created_at", 0)), reverse=True)
-    
-    return {"history": job_list}
+            row["result"] = job.get("result")
+        history.append(row)
+    history.sort(key=lambda x: float(x.get("created_at", 0)), reverse=True)
+    return {"history": history}
+
 
 @app.get("/api/download/{job_id}/{file_type}")
-async def download_result(job_id: str, file_type: str):
-    if job_id not in jobs:
-        raise HTTPException(status_code=404, detail="Job not found")
-    
-    job = jobs[job_id]
-    if job["status"] != JobStatus.COMPLETED:
+async def download_result(job_id: str, file_type: str, _: str = Depends(require_auth)):
+    with jobs_lock:
+        if job_id not in jobs:
+            raise HTTPException(status_code=404, detail="Job not found")
+        job = copy.deepcopy(jobs[job_id])
+    if job.get("status") != JobStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Job not completed")
-        
+
     result = job.get("result", {})
     file_path = None
-    
     if file_type == "srs":
         file_path = result.get("srs")
     elif file_type == "tests":
@@ -384,15 +464,16 @@ async def download_result(job_id: str, file_type: str):
         file_path = result.get("report")
     elif file_type == "zip":
         file_path = result.get("zip")
-        
+
     if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
-        
     return FileResponse(file_path, filename=Path(file_path).name)
 
-# Serve Static Files (Mount last to avoid blocking APIs)
-app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")
+
+#app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8001)

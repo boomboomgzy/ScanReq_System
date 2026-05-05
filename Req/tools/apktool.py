@@ -68,11 +68,16 @@ def apktool_apk(apk_path: str, output_dir: str):
         return False
 
     try:
-        result = subprocess.run(cmd_head + ["d", apk_path, "-o", output_dir, "-f"], capture_output=True, text=True)
+        result = subprocess.run(
+            cmd_head + ["d", apk_path, "-o", output_dir, "-f"],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+        )
         if result.returncode != 0:
             print("❌ apktool 执行失败:\n" + result.stderr)
             return False
-        print("-- apktool 解析完成 --")
+        print("-- apktool 解析完成 --", flush=True)
         return True
     except FileNotFoundError:
         print("❌ 未找到 'apktool' 或 'java' 可执行文件，请检查 PATH 或环境变量配置。")

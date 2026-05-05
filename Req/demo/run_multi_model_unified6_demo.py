@@ -198,7 +198,6 @@ def process_existing_app_combo(app_dir: Path, combo_label: str, parsed: dict | N
     main_activity = parsed.get("main_activity", "")
     app_name = _map_display_app_name(app_dir.name)
     analysis_json_path = parsed.get("analysis_json_path")
-
     app_intro_text = None
     app_list_path = _find_app_list(app_dir)
     if app_list_path is not None:
@@ -221,7 +220,6 @@ def process_existing_app_combo(app_dir: Path, combo_label: str, parsed: dict | N
         use_intro, use_activity, use_code = False, True, True
     else:
         use_intro, use_activity, use_code = True, True, True
-
     prompt = build_prompt(app_name, package, main_activity, analysis_json_path, app_intro_text, code_doc, use_intro, use_activity, use_code, lang=lang)
     try:
         if log_file is not None:
